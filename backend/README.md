@@ -20,6 +20,10 @@ Output is JSON containing overall accuracy and per-sample fields:
 - `gold_emotion`
 
 ## Notes
-- The model is prompted to return JSON only and uses `temperature=0` with `num_predict=128` to allow enough tokens after any “thinking” phase.
+- The model is prompted to return JSON only and uses `temperature=0` with `num_predict=128` to allow enough tokens after any "thinking" phase.
 - If the model fails to emit a label, the script logs a warning to stderr showing `done_reason` and the raw Ollama response (helps detect `length` truncation).
 - Dataset downloads automatically on first run (Hugging Face `emotion`).
+
+## API server (for the frontend)
+- Start: `uvicorn api_server:app --host 0.0.0.0 --port 8000`
+- Endpoint: `POST /classify` with JSON body `{"sentence": "..."}`; returns `{sentence, predicted_emotion, done_reason, raw_response}`.
