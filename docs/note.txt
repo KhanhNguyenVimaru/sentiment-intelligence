@@ -1,0 +1,2 @@
+Nguồn hướng dẫn chạy gpt trên local: https://cookbook.openai.com/articles/gpt-oss/run-locally-ollama
+Nguồn đánh giá EQ của model AI: https://eqbench.com/
