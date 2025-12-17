@@ -82,6 +82,17 @@ function buildPrompt(sentence: string): string {
   ].join('\n')
 }
 
+function buildBatchPrompt(sentences: string[]): string {
+  return [
+    'Classify the emotion conveyed by each sentence below.',
+    `Allowed labels: ${LABELS.join(', ')}.`,
+    'Reply strictly in JSON array format. Each element must look like {"sentence": "<original>", "label": "<label>"}.',
+    'Preserve the original order and sentences exactly as provided.',
+    'Sentences:',
+    ...sentences.map((sentence, index) => `${index + 1}. ${sentence}`),
+  ].join('\n')
+}
+
 function sanitizeModelText(raw: string): string {
   return raw.replace(/```(?:json)?/gi, '').trim()
 }
@@ -115,6 +126,24 @@ function extractLabelCandidate(text: string): string {
   }
 
   return sanitized.split(/\s+/)[0] ?? ''
+}
+
+function extractBatchCandidates(text: string): unknown {
+  const sanitized = sanitizeModelText(text)
+  if (!sanitized) return null
+
+  const parsed = tryParseJson(sanitized)
+  if (Array.isArray(parsed)) return parsed
+
+  const start = sanitized.indexOf('[')
+  const end = sanitized.lastIndexOf(']')
+  if (start !== -1 && end !== -1 && end > start) {
+    const sliced = sanitized.slice(start, end + 1)
+    const retry = tryParseJson(sliced)
+    if (Array.isArray(retry)) return retry
+  }
+
+  return null
 }
 
 function normalizeLabel(raw: string): EmotionLabel | null {
@@ -151,4 +180,41 @@ export async function classifyEmotion(sentence: string): Promise<ClassifyEmotion
     doneReason: finishReason,
     rawResponse: rawText,
   }
+}
+
+export async function classifyEmotionBatch(sentences: string[]): Promise<ClassifyEmotionResult[]> {
+  const cleaned = sentences.map((s) => s.trim()).filter((s): s is string => Boolean(s))
+  if (!cleaned.length) {
+    throw new Error('At least one sentence is required.')
+  }
+
+  const model = ensureModel()
+  const result = await model.generateContent(buildBatchPrompt(cleaned))
+  const response = await result.response
+
+  const finishReason = response.candidates?.[0]?.finishReason ?? null
+  const rawText = response.text() ?? ''
+  const parsed = extractBatchCandidates(rawText)
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Unable to parse batch response from Gemini.')
+  }
+
+  return cleaned.map((sentence, index) => {
+    const entry = parsed[index]
+    let label = ''
+    if (entry && typeof entry === 'object') {
+      const candidate = (entry as Record<string, unknown>).label
+      if (typeof candidate === 'string') {
+        label = candidate
+      }
+    }
+
+    return {
+      sentence,
+      predictedEmotion: normalizeLabel(label),
+      doneReason: finishReason,
+      rawResponse: rawText,
+    }
+  })
 }
