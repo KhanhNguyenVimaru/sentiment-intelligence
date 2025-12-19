@@ -48,30 +48,24 @@ export interface ClassifyEmotionResult {
 let cachedKey: string | null = null
 let cachedModel: GenerativeModel | null = null
 
-export function getGeminiApiKey(): string {
-  const candidate =
-    import.meta.env.VITE_GEMINI_API_KEY ??
-    import.meta.env.GEMINI_API_KEY ??
-    ''
-
-  const trimmed = candidate.trim()
+function normalizeApiKey(candidate: string): string {
+  const trimmed = candidate?.trim()
   if (!trimmed) {
-    throw new Error('Missing VITE_GEMINI_API_KEY value. Define it in app/.env and restart Vite.')
+    throw new Error('Please enter your Gemini API key before running an analysis.')
   }
-
   return trimmed
 }
 
-function ensureModel(): GenerativeModel {
-  const apiKey = getGeminiApiKey()
-  if (cachedModel && cachedKey === apiKey) return cachedModel
+function ensureModel(apiKey: string): GenerativeModel {
+  const normalizedKey = normalizeApiKey(apiKey)
+  if (cachedModel && cachedKey === normalizedKey) return cachedModel
 
-  const client = new GoogleGenerativeAI(apiKey)
+  const client = new GoogleGenerativeAI(normalizedKey)
   cachedModel = client.getGenerativeModel({
     model: MODEL_NAME,
     generationConfig: MODEL_CONFIG,
   })
-  cachedKey = apiKey
+  cachedKey = normalizedKey
   return cachedModel
 }
 
@@ -162,13 +156,13 @@ function normalizeLabel(raw: string): EmotionLabel | null {
   return LABEL_SYNONYMS[candidate] ?? null
 }
 
-export async function classifyEmotion(sentence: string): Promise<ClassifyEmotionResult> {
+export async function classifyEmotion(sentence: string, apiKey: string): Promise<ClassifyEmotionResult> {
   const trimmed = sentence?.trim()
   if (!trimmed) {
     throw new Error('Sentence must not be empty.')
   }
 
-  const model = ensureModel()
+  const model = ensureModel(apiKey)
   const result = await model.generateContent(buildPrompt(trimmed))
   const response = await result.response
 
@@ -225,13 +219,16 @@ async function classifyBatchChunk(
   })
 }
 
-export async function classifyEmotionBatch(sentences: string[]): Promise<ClassifyEmotionResult[]> {
+export async function classifyEmotionBatch(
+  sentences: string[],
+  apiKey: string,
+): Promise<ClassifyEmotionResult[]> {
   const cleaned = sentences.map((s) => s.trim()).filter((s): s is string => Boolean(s))
   if (!cleaned.length) {
     throw new Error('At least one sentence is required.')
   }
 
-  const model = ensureModel()
+  const model = ensureModel(apiKey)
   const aggregated: ClassifyEmotionResult[] = []
 
   for (const chunk of chunkSentences(cleaned, MAX_BATCH_SIZE)) {

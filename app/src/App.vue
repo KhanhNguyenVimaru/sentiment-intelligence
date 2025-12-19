@@ -34,6 +34,7 @@ const CHART_COLORS: Record<ChartLabel, string> = {
   unknown: '#94a3b8',
 }
 
+const apiKey = ref('')
 const activeMode = ref<Mode>('single')
 const sentence = ref('')
 const excelSentences = ref<string[]>([])
@@ -50,9 +51,15 @@ const resolveColor = (label: string | null) => {
   return CHART_COLORS[key]
 }
 
+const sanitizedApiKey = computed(() => apiKey.value.trim())
+const hasApiKey = computed(() => Boolean(sanitizedApiKey.value))
 const hasResults = computed(() => predictions.value.length > 0)
-const canSubmitSingle = computed(() => Boolean(sentence.value.trim()) && !loading.value)
-const canSubmitExcel = computed(() => excelSentences.value.length > 0 && !loading.value)
+const canSubmitSingle = computed(
+  () => Boolean(sentence.value.trim()) && !loading.value && hasApiKey.value,
+)
+const canSubmitExcel = computed(
+  () => excelSentences.value.length > 0 && !loading.value && hasApiKey.value,
+)
 const latestSingleResult = computed(() =>
   activeMode.value === 'single' ? predictions.value[0] ?? null : null,
 )
@@ -179,19 +186,38 @@ watch(activeMode, (mode) => {
   resetStateForMode(mode)
 })
 
+watch(apiKey, () => {
+  const currentError = error.value
+  if (currentError && currentError.toLowerCase().includes('api key')) {
+    error.value = null
+  }
+})
+
 onUnmounted(() => {
   teardownChart()
 })
 
+const requireApiKey = (): string | null => {
+  const key = sanitizedApiKey.value
+  if (!key) {
+    error.value = 'Please enter your Gemini API key.'
+    return null
+  }
+  return key
+}
+
 const classifySingle = async () => {
   if (!sentence.value.trim() || loading.value) return
+
+  const key = requireApiKey()
+  if (!key) return
 
   loading.value = true
   error.value = null
   predictions.value = []
 
   try {
-    const response = await classifyEmotion(sentence.value.trim())
+    const response = await classifyEmotion(sentence.value.trim(), key)
     predictions.value = [response]
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to analyze the sentence.'
@@ -203,12 +229,15 @@ const classifySingle = async () => {
 const classifyExcel = async () => {
   if (!excelSentences.value.length || loading.value) return
 
+  const key = requireApiKey()
+  if (!key) return
+
   loading.value = true
   error.value = null
   predictions.value = []
 
   try {
-    const results = await classifyEmotionBatch(excelSentences.value)
+    const results = await classifyEmotionBatch(excelSentences.value, key)
     if (!results.length) {
       throw new Error('No valid sentences found in the file.')
     }
@@ -345,6 +374,26 @@ const handleExcelUpload = async (event: Event) => {
               </p>
 
               <div class="mt-6 space-y-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-semibold text-slate-700" for="api-key-input">Gemini API key</label>
+                  <input
+                    id="api-key-input"
+                    v-model="apiKey"
+                    type="password"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Paste your Gemini API key"
+                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-200"
+                  />
+                  <p class="text-xs text-slate-500">Stored locally and only used for the requests you trigger.</p>
+                  <p
+                    v-if="!hasApiKey"
+                    class="text-xs font-medium text-amber-600"
+                  >
+                    Enter your API key to enable the analysis actions.
+                  </p>
+                </div>
+
                 <form v-if="activeMode === 'single'" class="space-y-4" @submit.prevent="classifySingle">
                   <label class="text-sm font-semibold text-slate-700" for="sentence-input">Sentence</label>
                   <textarea
