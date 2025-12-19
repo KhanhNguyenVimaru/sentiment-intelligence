@@ -1,4 +1,0 @@
-Nguồn đánh giá EQ của model AI: https://eqbench.com/
-Các nguồn về kiến trúc transformer:     https://200lab.io/blog/transformer-cong-nghe-dang-sau-chatgpt-va-bard
-                                        https://viblo.asia/p/tim-hieu-ve-kien-truc-transformer-Az45byM6lxY
-
