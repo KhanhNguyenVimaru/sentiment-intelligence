@@ -50,4 +50,4 @@ Use the Python harness under `../test` when you need to validate prompt quality 
 - **Type errors around `import.meta.env`**: run `npm install` to ensure `env.d.ts` is picked up by Vite/TS.
 
 ## 6. Reference
-- <https://www.studocu.vn/vn/document/dai-hoc-hang-hai-viet-nam/ky-thuat-hoc-sau-va-ung-dung/bao-cao-bai-tap-lon-ky-thuat-hoc-sau-xac-dinh-cam-xuc-tu-van-ban/150160156>
+- <https://www.studocu.vn/vn/document/dai-hoc-hang-hai-viet-nam/ky-thuat-hoc-sau-va-ung-dung/bao-cao-bai-tap-lon-ky-thuat-hoc-sau-xac-dinh-cam-xuc-dl101/150377449>
